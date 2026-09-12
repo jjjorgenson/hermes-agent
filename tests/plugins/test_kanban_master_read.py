@@ -1,10 +1,15 @@
-"""Master kanban read slice — serialize_task, capability 403, partial GET, composite keys."""
+"""Master kanban read slice — serialize_task, capability 403, partial GET, composite keys.
+
+Jason review style: each contract prints expected vs actual, not bare PASSED.
+"""
 
 from __future__ import annotations
 
 import importlib.util
+import json
 import sys
 from pathlib import Path
+from typing import Any
 
 import pytest
 from fastapi import FastAPI
@@ -13,6 +18,12 @@ from fastapi.testclient import TestClient
 from hermes_cli import kanban_db as kb
 from hermes_cli import kanban_db_connect as kbc
 from hermes_cli import kanban_serialize as kser
+
+
+def _log_check(label: str, expected: Any, actual: Any) -> None:
+    print(f"\n[{label}]")
+    print(f"  expected: {json.dumps(expected, default=str) if not isinstance(expected, str) else expected!r}")
+    print(f"  actual:   {json.dumps(actual, default=str) if not isinstance(actual, str) else actual!r}")
 
 
 def _load_plugin_router():
@@ -50,18 +61,29 @@ def test_serialize_task_includes_board_identity(kanban_home):
     task = kb.get_task(conn, task_id)
     assert task is not None
     payload = kser.serialize_task("alpha", task, latest_summary="summary line")
-    assert payload["board_slug"] == "alpha"
-    assert payload["board_name"] == "Alpha Fleet"
-    assert payload["board_icon"] == "rocket"
-    assert payload["board_color"] == "#ff00aa"
-    assert payload["title"] == "Ship it"
-    assert payload["latest_summary"] == "summary line"
+
+    checks = {
+        "board_slug": "alpha",
+        "board_name": "Alpha Fleet",
+        "board_icon": "rocket",
+        "board_color": "#ff00aa",
+        "title": "Ship it",
+        "latest_summary": "summary line",
+    }
+    for key, expected in checks.items():
+        actual = payload.get(key)
+        _log_check(f"serialize_task.{key}", expected, actual)
+        assert actual == expected
+
+    _log_check("serialize_task.write_safe_root absent", "key missing", "present" if "write_safe_root" in payload else "key missing")
     assert "write_safe_root" not in payload
 
 
 def test_task_address_composite_key():
-    addr = kser.task_address("my-board", "t_abc123")
-    assert addr == {"board_slug": "my-board", "task_id": "t_abc123"}
+    expected = {"board_slug": "my-board", "task_id": "t_abc123"}
+    actual = kser.task_address("my-board", "t_abc123")
+    _log_check("task_address", expected, actual)
+    assert actual == expected
 
 
 def test_master_tasks_fan_out_partial_success(client, kanban_home):
@@ -74,12 +96,25 @@ def test_master_tasks_fan_out_partial_success(client, kanban_home):
     bad_db.write_text("not sqlite", encoding="utf-8")
 
     response = client.get("/api/plugins/kanban/master/tasks")
-    assert response.status_code == 200, response.text
     data = response.json()
+
+    _log_check("GET /master/tasks status", 200, response.status_code)
+    assert response.status_code == 200, response.text
+
+    _log_check("capability default", "read", data.get("capability"))
     assert data["capability"] == "read"
-    assert any(t["board_slug"] == "good" for t in data["tasks"])
-    assert any(e["board_slug"] == "bad" for e in data["errors"])
-    assert all("board_slug" in t for t in data["tasks"])
+
+    good_slugs = [t["board_slug"] for t in data["tasks"]]
+    _log_check("good board present in tasks", "good", good_slugs)
+    assert "good" in good_slugs
+
+    error_slugs = [e["board_slug"] for e in data["errors"]]
+    _log_check("bad board in errors[]", "bad", error_slugs)
+    assert "bad" in error_slugs
+
+    all_tagged = all("board_slug" in t for t in data["tasks"])
+    _log_check("every task carries board_slug", True, all_tagged)
+    assert all_tagged
 
 
 def test_master_get_one_uses_composite_address(client, kanban_home):
@@ -88,12 +123,20 @@ def test_master_get_one_uses_composite_address(client, kanban_home):
         task_id = kb.create_task(conn, title="Find me", created_by="test", board="target")
 
     ok = client.get(f"/api/plugins/kanban/master/tasks/target/{task_id}")
-    assert ok.status_code == 200, ok.text
     body = ok.json()
-    assert body["address"] == {"board_slug": "target", "task_id": task_id}
+    expected_addr = {"board_slug": "target", "task_id": task_id}
+
+    _log_check("GET one status", 200, ok.status_code)
+    assert ok.status_code == 200, ok.text
+
+    _log_check("composite address", expected_addr, body.get("address"))
+    assert body["address"] == expected_addr
+
+    _log_check("task.board_slug", "target", body["task"].get("board_slug"))
     assert body["task"]["board_slug"] == "target"
 
     missing = client.get("/api/plugins/kanban/master/tasks/target/t_missing")
+    _log_check("missing task status", 404, missing.status_code)
     assert missing.status_code == 404
 
 
@@ -102,11 +145,14 @@ def test_master_capability_403_body(client, kanban_home, monkeypatch):
 
     monkeypatch.setattr(mc_mod, "get_master_capability", lambda: "read")
     response = client.patch("/api/plugins/kanban/master/tasks/default/t_x")
-    assert response.status_code == 403, response.text
     detail = response.json()["detail"]
-    assert detail["error"] == "master_capability"
-    assert detail["required"] == "move"
-    assert detail["current"] == "read"
+    expected = {"error": "master_capability", "required": "move", "current": "read"}
+
+    _log_check("PATCH /master/tasks status", 403, response.status_code)
+    assert response.status_code == 403, response.text
+
+    _log_check("403 body", expected, detail)
+    assert detail == expected
 
 
 def test_master_create_requires_full_edit(client, kanban_home, monkeypatch):
@@ -114,15 +160,26 @@ def test_master_create_requires_full_edit(client, kanban_home, monkeypatch):
 
     monkeypatch.setattr(mc_mod, "get_master_capability", lambda: "move")
     response = client.post("/api/plugins/kanban/master/tasks", json={"title": "nope"})
+    detail = response.json()["detail"]
+
+    _log_check("POST /master/tasks at move capability status", 403, response.status_code)
     assert response.status_code == 403
-    assert response.json()["detail"]["required"] == "full-edit"
+
+    _log_check("required capability", "full-edit", detail.get("required"))
+    assert detail["required"] == "full-edit"
 
 
 def test_collapsing_env_warns_on_master_read(client, kanban_home, monkeypatch):
     monkeypatch.setenv("HERMES_KANBAN_DB", str(kanban_home / "kanban.db"))
     response = client.get("/api/plugins/kanban/master/tasks")
+    warnings = response.json().get("warnings", [])
+    has_pin = any("HERMES_KANBAN_DB" in w for w in warnings)
+
+    _log_check("GET /master/tasks with global DB pin status", 200, response.status_code)
     assert response.status_code == 200
-    assert any("HERMES_KANBAN_DB" in w for w in response.json()["warnings"])
+
+    _log_check("warnings mention HERMES_KANBAN_DB", True, has_pin)
+    assert has_pin
 
 
 def test_collapsing_env_409_on_master_mutator(client, kanban_home, monkeypatch):
@@ -131,5 +188,10 @@ def test_collapsing_env_409_on_master_mutator(client, kanban_home, monkeypatch):
     monkeypatch.setenv("HERMES_KANBAN_DB", str(kanban_home / "kanban.db"))
     monkeypatch.setattr(mc_mod, "get_master_capability", lambda: "full-edit")
     response = client.post("/api/plugins/kanban/master/tasks", json={"title": "blocked"})
+    detail = response.json()["detail"]
+
+    _log_check("POST /master/tasks under env collapse status", 409, response.status_code)
     assert response.status_code == 409
-    assert response.json()["detail"]["error"] == "kanban_env_collapse"
+
+    _log_check("409 error kind", "kanban_env_collapse", detail.get("error"))
+    assert detail["error"] == "kanban_env_collapse"
