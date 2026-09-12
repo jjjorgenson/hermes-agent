@@ -32,6 +32,7 @@ import {
 
 import { $boardSlug, bindApi, boardKey, fetchBoard } from './api'
 import { KanbanBoardPage } from './board'
+import { KanbanMasterPage } from './master'
 import { KANBAN_LOCALES } from './i18n'
 import { $newTaskLane, useKanban } from './ui'
 
@@ -111,6 +112,12 @@ const plugin: HermesPlugin = {
         render: () => <KanbanBoardPage />
       },
       {
+        id: 'master-page',
+        area: ROUTES_AREA,
+        data: { path: '/kanban/master' } satisfies RouteContribution,
+        render: () => <KanbanMasterPage />
+      },
+      {
         id: 'nav',
         area: SIDEBAR_NAV_AREA,
         order: 50,
@@ -130,6 +137,16 @@ const plugin: HermesPlugin = {
           label: 'Kanban: Open board',
           keywords: ['kanban', 'board', 'tasks', 'agents'],
           run: () => host.navigate('/kanban')
+        } satisfies PaletteContribution
+      },
+      {
+        id: 'master-open',
+        area: PALETTE_AREA,
+        data: {
+          id: 'kanban.master',
+          label: 'Kanban: Open Master view',
+          keywords: ['kanban', 'master', 'fleet', 'leadership'],
+          run: () => host.navigate('/kanban/master')
         } satisfies PaletteContribution
       },
       {

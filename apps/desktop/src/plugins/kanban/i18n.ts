@@ -160,6 +160,15 @@ type KanbanMessages = {
   copiedTitle: string
   close: string
   working: string
+  // master leadership view
+  masterTitle: string
+  masterSubtitle: string
+  masterBoardView: string
+  masterFleetView: string
+  masterShowTodoTriage: string
+  masterReadOnly: string
+  masterReadOnlyTip: string
+  masterOpenBoard: (name: string) => string
   // board switcher
   board: string
   newBoard: string
@@ -376,6 +385,14 @@ export const en: KanbanMessages = {
   copiedTitle: 'Copied title',
   close: 'Close',
   working: 'working',
+  masterTitle: 'Master',
+  masterSubtitle: 'Leadership window across all boards — view only at this capability level.',
+  masterBoardView: 'Board view',
+  masterFleetView: 'Master view',
+  masterShowTodoTriage: 'Show todo & triage',
+  masterReadOnly: 'Read only',
+  masterReadOnlyTip: 'dashboard.kanban.master.capability is read — create, move, and edit are hidden.',
+  masterOpenBoard: name => `Open ${name} board`,
   board: 'Board',
   newBoard: 'New board',
   newBoardDots: 'New board…',
@@ -587,6 +604,14 @@ const ja: KanbanMessages = {
   copiedTitle: 'タイトルをコピーしました',
   close: '閉じる',
   working: '作業中',
+  masterTitle: 'マスター',
+  masterSubtitle: '全ボードのリーダーシップビュー — 現在の権限では閲覧のみ。',
+  masterBoardView: 'ボード表示',
+  masterFleetView: 'マスター表示',
+  masterShowTodoTriage: 'Todo と Triage を表示',
+  masterReadOnly: '閲覧のみ',
+  masterReadOnlyTip: 'dashboard.kanban.master.capability が read のため、作成・移動・編集は非表示です。',
+  masterOpenBoard: name => `${name} ボードを開く`,
   board: 'ボード',
   newBoard: '新しいボード',
   newBoardDots: '新しいボード…',
@@ -796,6 +821,14 @@ const zh: KanbanMessages = {
   copiedTitle: '已复制标题',
   close: '关闭',
   working: '进行中',
+  masterTitle: '总览',
+  masterSubtitle: '跨所有看板的领导视图 — 当前权限为只读。',
+  masterBoardView: '看板视图',
+  masterFleetView: '总览视图',
+  masterShowTodoTriage: '显示待办与分流',
+  masterReadOnly: '只读',
+  masterReadOnlyTip: 'dashboard.kanban.master.capability 为 read — 隐藏创建、移动和编辑。',
+  masterOpenBoard: name => `打开 ${name} 看板`,
   board: '面板',
   newBoard: '新建面板',
   newBoardDots: '新建面板…',
@@ -1004,6 +1037,14 @@ const zhHant: KanbanMessages = {
   copiedTitle: '已複製標題',
   close: '關閉',
   working: '進行中',
+  masterTitle: '总览',
+  masterSubtitle: '跨所有看板的领导视图 — 当前权限为只读。',
+  masterBoardView: '看板视图',
+  masterFleetView: '总览视图',
+  masterShowTodoTriage: '显示待办与分流',
+  masterReadOnly: '只读',
+  masterReadOnlyTip: 'dashboard.kanban.master.capability 为 read — 隐藏创建、移动和编辑。',
+  masterOpenBoard: name => `打开 ${name} 看板`,
   board: '面板',
   newBoard: '新增面板',
   newBoardDots: '新增面板…',

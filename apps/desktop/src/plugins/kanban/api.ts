@@ -30,6 +30,8 @@ import type {
   KanbanProject,
   KanbanTask,
   KanbanTaskDetail,
+  MasterCapabilityResponse,
+  MasterTasksResponse,
   OrchestrationSettings,
   TaskEstimate,
   WorkerLog
@@ -83,6 +85,24 @@ function onEventsFrame(slug: string, data: unknown): void {
   void onKanbanEventsFrame(slug, events).catch(() => undefined)
 }
 
+function onMasterEventsFrame(data: unknown): void {
+  const events = (data as { events?: Array<{ board_slug?: string; task_id?: string }> })?.events
+
+  if (!events?.length) {
+    return
+  }
+
+  void queryClient.invalidateQueries({ queryKey: ['kanban', 'master'] })
+  void queryClient.invalidateQueries({ queryKey: ['kanban', 'board'] })
+  void queryClient.invalidateQueries({ queryKey: BOARDS_KEY })
+
+  for (const event of events) {
+    if (event.board_slug && event.task_id) {
+      void queryClient.invalidateQueries({ queryKey: taskKey(event.board_slug, event.task_id) })
+    }
+  }
+}
+
 // A persisted, subscribable atom (the structural slice we need — avoids
 // importing nanostore's type just to describe one).
 interface Persisted<T> {
@@ -118,6 +138,7 @@ export function bindApi(
   persist($collapsedLanes, COLLAPSED_KEY, {})
 
   let close: (() => void) | null = null
+  let closeMaster: (() => void) | null = null
 
   const open = (slug: string) => {
     close?.()
@@ -127,9 +148,12 @@ export function bindApi(
   open($boardSlug.get())
   unsubs.push($boardSlug.listen(open))
 
+  closeMaster = socket('/master/events', onMasterEventsFrame)
+
   return () => {
     unsubs.forEach(unsub => unsub())
     close?.()
+    closeMaster?.()
     rest = null
     os = null
   }
@@ -166,8 +190,14 @@ export const BOARDS_KEY = ['kanban', 'boards'] as const
 export const PROFILES_KEY = ['kanban', 'profiles'] as const
 export const PROJECTS_KEY = ['kanban', 'projects'] as const
 export const ORCHESTRATION_KEY = ['kanban', 'orchestration'] as const
+export const MASTER_KEY = (includeTodoTriage: boolean) => ['kanban', 'master', 'tasks', includeTodoTriage] as const
 
 // ── reads ─────────────────────────────────────────────────────────────────────
+
+export const fetchMasterCapability = () => call<MasterCapabilityResponse>('/master/capability')
+
+export const fetchMasterTasks = (includeTodoTriage: boolean) =>
+  call<MasterTasksResponse>(`/master/tasks${includeTodoTriage ? '?include_todo_triage=true' : ''}`)
 
 export const fetchBoard = (archived: boolean) =>
   call<KanbanBoard>(withBoard('/board', archived ? { include_archived: 'true' } : {}))

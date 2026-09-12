@@ -1089,11 +1089,16 @@ def _load_config_or_empty() -> dict:
 def get_config():
     """Kanban dashboard preferences from the ``dashboard.kanban`` config section."""
     k_cfg = (_load_config_or_empty().get("dashboard") or {}).get("kanban") or {}
+    master_cfg = k_cfg.get("master") if isinstance(k_cfg.get("master"), dict) else {}
     return {
         "default_tenant": k_cfg.get("default_tenant") or "",
         "lane_by_profile": bool(k_cfg.get("lane_by_profile", True)),
         "include_archived_by_default": bool(k_cfg.get("include_archived_by_default", False)),
-        "render_markdown": bool(k_cfg.get("render_markdown", True))}
+        "render_markdown": bool(k_cfg.get("render_markdown", True)),
+        "master": {
+            "capability": str(master_cfg.get("capability") or "read"),
+        },
+    }
 
 
 # --- Home-channel subscriptions (per-task, per-platform toggles) -------------
@@ -1725,3 +1730,27 @@ async def stream_events(ws: WebSocket):
             pass
     finally:
         await tail.shutdown()
+
+
+# --- Master leadership view (read slice) ------------------------------------
+
+def _register_master_routes() -> None:
+    import importlib.util
+    import sys
+    from pathlib import Path
+
+    path = Path(__file__).with_name("master_api.py")
+    mod_name = "hermes_kanban_dashboard_master_api"
+    if mod_name not in sys.modules:
+        spec = importlib.util.spec_from_file_location(mod_name, path)
+        if spec is None or spec.loader is None:
+            return
+        mod = importlib.util.module_from_spec(spec)
+        sys.modules[mod_name] = mod
+        spec.loader.exec_module(mod)
+    else:
+        mod = sys.modules[mod_name]
+    mod.register(router)
+
+
+_register_master_routes()

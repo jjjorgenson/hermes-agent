@@ -1346,6 +1346,10 @@ export function KanbanBoardPage() {
         )}
         <SearchField aria-label={k.filterCards} onChange={setSearch} placeholder={k.filterCards} value={search} />
         <div className="ml-auto flex items-center gap-1">
+          <Button onClick={() => host.navigate('/kanban/master')} size="xs" variant="ghost">
+            <Codicon name="globe" size="0.8rem" />
+            {k.masterFleetView}
+          </Button>
           <Tip label={k.orchestrationSettings}>
             <Button
               aria-label={k.orchestrationSettings}

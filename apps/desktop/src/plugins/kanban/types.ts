@@ -25,6 +25,14 @@ export interface KanbanTask {
   last_heartbeat_at?: null | number
 }
 
+/** Master fleet card — extends the board card with board identity fields. */
+export interface KanbanMasterTask extends KanbanTask {
+  board_slug: string
+  board_name?: null | string
+  board_icon?: null | string
+  board_color?: null | string
+}
+
 export interface KanbanColumn {
   name: string
   tasks: KanbanTask[]
@@ -183,6 +191,25 @@ export interface TaskEstimate {
 export interface BoardsResponse {
   boards: BoardMeta[]
   current: string
+}
+
+/** GET /master/tasks — leadership window across every board. */
+export interface MasterTasksResponse {
+  capability: string
+  warnings: string[]
+  errors: Array<{ board_slug: string; error: string }>
+  boards: string[]
+  tasks: KanbanMasterTask[]
+  columns: Array<{ name: string; tasks: KanbanMasterTask[] }>
+  now: number
+}
+
+export interface MasterCapabilityResponse {
+  capability: string
+  allowed: string[]
+  reserved_event_kinds: string[]
+  workspace_policies: string[]
+  warnings: string[]
 }
 
 /** GET /tasks/:id/log — the worker's stdout/stderr tail. */
