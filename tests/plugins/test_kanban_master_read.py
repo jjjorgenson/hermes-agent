@@ -182,6 +182,22 @@ def test_collapsing_env_warns_on_master_read(client, kanban_home, monkeypatch):
     assert has_pin
 
 
+def test_collapsing_env_does_not_shadow_read_403(client, kanban_home, monkeypatch):
+    """Capability 403 must win over env-collapse 409 at read."""
+    import hermes_kanban_dashboard_master_capability as mc_mod
+
+    monkeypatch.setenv("HERMES_KANBAN_DB", str(kanban_home / "kanban.db"))
+    monkeypatch.setattr(mc_mod, "get_master_capability", lambda: "read")
+    response = client.patch("/api/plugins/kanban/master/tasks/default/t_x")
+    detail = response.json()["detail"]
+    expected = {"error": "master_capability", "required": "move", "current": "read"}
+
+    _log_check("PATCH at read + collapsing env status", 403, response.status_code)
+    assert response.status_code == 403
+    _log_check("403 body not shadowed by 409", expected, detail)
+    assert detail == expected
+
+
 def test_collapsing_env_409_on_master_mutator(client, kanban_home, monkeypatch):
     import hermes_kanban_dashboard_master_capability as mc_mod
 

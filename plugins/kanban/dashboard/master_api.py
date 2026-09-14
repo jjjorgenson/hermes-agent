@@ -279,14 +279,14 @@ def register(api_router: APIRouter) -> None:
 
     @api_router.post("/master/tasks")
     def master_create_task_stub():
-        mc.reject_if_collapsing_env()
         mc.require_master_capability("full-edit")
+        mc.reject_if_collapsing_env()
         raise HTTPException(status_code=501, detail="master task create not implemented in read slice")
 
     @api_router.patch("/master/tasks/{board_slug}/{task_id}")
     def master_patch_task_stub(board_slug: str, task_id: str):
-        mc.reject_if_collapsing_env()
         mc.require_master_capability("move")
+        mc.reject_if_collapsing_env()
         raise HTTPException(status_code=501, detail="master task move not implemented in read slice")
 
     # --- WebSocket: one Master channel, events tagged with board_slug --------
