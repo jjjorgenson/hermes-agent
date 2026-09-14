@@ -72,17 +72,15 @@ export interface Translations {
     opening: string
     waiting: string
     timeout: string
-    keepWaiting: string
     refresh: string
     statusError: string
     connectError: string
+    connectErrorFor: (app: string) => string
     unavailable: string
     ownerMissing: string
     search: string
     empty: string
     disclaimer: string
-    connectTitle: (app: string) => string
-    describe: (app: string) => string
     execution: string
   }
   sessionImport: {
@@ -258,6 +256,9 @@ export interface Translations {
       errorMessage: (name: string) => string
       signIn: string
       view: string
+      disable: string
+      disabledMessage: (name: string) => string
+      disableFailed: (name: string) => string
     }
     errors: {
       elevenLabsNeedsKey: string
@@ -656,6 +657,7 @@ export interface Translations {
       technicalDesc: string
       themeTitle: string
       themeDesc: string
+      themeSearchPlaceholder: string
       themeProfileNote: (profile: string) => string
       installTitle: string
       installDesc: string
@@ -706,6 +708,30 @@ export interface Translations {
     }
     fieldLabels: Record<string, string>
     fieldDescriptions: Record<string, string>
+    uninstallSection: {
+      dangerZone: string
+      confirmUninstall: string
+      uninstallHermes: string
+    }
+    poolLimits: {
+      warmBotBackendsAria: string
+      warmBotBackendsTitle: string
+      backendIdleTimeoutAria: string
+      backendIdleTimeoutTitle: string
+    }
+    customEndpoints: {
+      title: string
+      deleteEndpoint: string
+      emptyDescription: string
+      emptyTitle: string
+      namePlaceholder: string
+      contextPlaceholder: string
+    }
+    computerUse: {
+      accessibility: string
+      screenRecording: string
+      driverHealth: string
+    }
     about: {
       heading: string
       version: (value: string) => string
@@ -765,6 +791,7 @@ export interface Translations {
       attachmentSizeDesc: string
       attachmentSizeUnit: string
       attachmentSizeLabel: string
+      showOptions: string
     }
     quickEntry: {
       enabledTitle: string
@@ -1121,10 +1148,14 @@ export interface Translations {
       setToMain: string
       change: string
       autoUseMain: string
+      inheritMainEffort: string
       providerDefault: string
       fallbackAdd: string
       fallbackEmpty: string
       notInCatalog: string
+      moaTitle: string
+      moaPreset: string
+      moaAggregator: string
       tasks: Record<string, AuxTaskCopy>
     }
     localModels: {
@@ -1694,6 +1725,10 @@ export interface Translations {
     restartGateway: string
     openBrowser: string
     gatewayRestartFailed: string
+    sharedGatewayRestartTitle: string
+    sharedGatewayRestartDescription: (bots: string) => string
+    sharedGatewayRestartConfirm: string
+    sharedGatewayRestarted: (count: number) => string
     updateHermes: string
     reloadWindow: string
     actionRunning: string
@@ -1777,6 +1812,7 @@ export interface Translations {
     states: Record<string, string>
     unknown: string
     hintPendingRestart: string
+    sharedListenerUrl: string
     hintGatewayStopped: string
     credentialsSet: string
     needsSetup: string
@@ -1803,6 +1839,8 @@ export interface Translations {
     restartToApply: string
     setupSaved: (name: string) => string
     restartToReconnect: string
+    appliedLive: string
+    connectingLive: string
     keyCleared: (key: string) => string
     setupUpdated: (name: string) => string
     failedUpdate: (name: string) => string
@@ -3418,22 +3456,18 @@ export interface Translations {
       lateAnswerHint: string
     }
     mcpSetup: {
-      installTitle: (server: string) => string
-      enableTitle: (server: string) => string
-      authorizeTitle: (server: string) => string
+      installTitle: string
+      enableTitle: string
+      authorizeTitle: string
       installAction: string
       enableAction: string
       authorizeAction: string
-      decline: string
-      declined: string
       installed: (server: string) => string
       enabled: (server: string) => string
       authorized: (server: string) => string
       failed: (server: string) => string
-      unanswered: string
       toolCount: (count: number) => string
       notInCatalog: (server: string) => string
-      catalogSource: string
       envRequired: string
       sendFailed: string
       reloadFailed: string
@@ -3450,6 +3484,19 @@ export interface Translations {
       copyQuery: string
       copyFile: string
       copyPath: string
+      failedCalls: (count: number) => string
+      skillActivity: {
+        loading: string
+        loaded: string
+        loadFailed: string
+        readingResource: string
+        readResource: string
+        resourceFailed: string
+        listing: string
+        listed: string
+        listFailed: string
+        unavailable: string
+      }
       outputAlt: string
       rawResponse: string
       copyActivity: string
@@ -3462,6 +3509,7 @@ export interface Translations {
       statusRecovered: string
       statusDone: string
       /** Over-budget / rejected memory write title — not "Saved to memory". */
+      resultUnavailable: string
       memoryWriteNoted: string
       actions: {
         read: string
@@ -3589,6 +3637,8 @@ export interface Translations {
     imageAttach: string
     imageWriteFailed: string
     imageAttachFailed: string
+    pastedContent: string
+    pasteAttachFailed: string
     attachImages: string
     clipboard: string
     noClipboardImage: string

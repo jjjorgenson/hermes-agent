@@ -47,24 +47,11 @@ _PROFILE_MANAGED_ENV_KEYS: frozenset[str] = frozenset({
 
 
 def _env_keys_defined_in_dotenv(path: Path) -> set[str]:
-    """KEY names assigned in a dotenv file (including empty ``KEY=``). A fast line scanner (works in early
-    bootstrap without python-dotenv); decode errors fall back to latin-1 like ``_load_dotenv_with_fallback``."""
-    keys: set[str] = set()
-    try:
-        text = path.read_text(encoding="utf-8", errors="replace")
-    except Exception:
-        try:
-            text = path.read_text(encoding="latin-1", errors="replace")
-        except Exception:
-            return keys
-    for line in text.splitlines():
-        line = line.strip()
-        if not line or line.startswith("#") or "=" not in line:
-            continue
-        key = line.removeprefix("export ").split("=", 1)[0].strip()
-        if key:
-            keys.add(key)
-    return keys
+    """KEY names assigned in a dotenv file (including empty ``KEY=``), via the same tokenizer that installs
+    profile scopes — a key the installer sees is a key the dashboard scrub sees (BOM'd first line included)."""
+    from agent.secret_scope import load_env_file
+
+    return set(load_env_file(path))
 
 
 def _clear_known_keys_missing_from_dotenv(path: Path) -> None:
@@ -114,6 +101,10 @@ def _hydrate_profile_secret_sources(home: Path) -> dict[str, str]:
     if home_key in _APPLIED_HOMES:
         return get_secret_source_values(home)
 
+    # A retry must not keep serving a partial result after the source is removed, disabled, or can no
+    # longer be evaluated. Publish only the snapshot established by this attempt.
+    _SECRET_SOURCE_VALUES_BY_HOME.pop(home_key, None)
+
     try:
         cfg = _load_secrets_config(home)
     except Exception:  # noqa: BLE001 — external sources must not block routing
@@ -143,7 +134,11 @@ def _hydrate_profile_secret_sources(home: Path) -> dict[str, str]:
     if not report.sources:
         return {}
 
-    _APPLIED_HOMES.add(home_key)
+    # Routed profiles have no runtime reset path. Keep a failed source retryable so correcting its
+    # profile-local bootstrap credentials takes effect on the next turn; successful sources from a
+    # mixed report are still snapshotted below and can be used while the failed source recovers.
+    if all(src.result.ok for src in report.sources):
+        _APPLIED_HOMES.add(home_key)
     values: dict[str, str] = {}
     for name, applied in report.provenance.items():
         value = local_env.get(name)
@@ -151,8 +146,7 @@ def _hydrate_profile_secret_sources(home: Path) -> dict[str, str]:
             continue
         _SECRET_SOURCES[name] = applied.source
         values[name] = value
-    if values:
-        _SECRET_SOURCE_VALUES_BY_HOME[home_key] = values
+    _SECRET_SOURCE_VALUES_BY_HOME[home_key] = values
     return dict(values)
 
 
@@ -332,7 +326,10 @@ def load_hermes_dotenv(
 ) -> list[Path]:
     """Load Hermes env files: ``~/.hermes/.env`` overrides stale shell exports; project ``.env`` is a dev
     fallback that only fills gaps when the user env exists (and overrides shell vars when it does not)."""
-    home_path = Path(hermes_home or os.getenv("HERMES_HOME", Path.home() / ".hermes"))
+    # Process home on purpose (never the per-turn override): a startup .env load must not follow a routed
+    # profile — see the multiplex guard below.
+    from hermes_constants import get_process_hermes_home
+    home_path = Path(hermes_home) if hermes_home else get_process_hermes_home()
 
     # Multiplex gateway: while a routed profile-home override is active, copying that profile's .env
     # into os.environ would expose its credentials to sibling turns and every spawned child. Unscoped
@@ -354,6 +351,12 @@ def load_hermes_dotenv(
         return []
 
     loaded: list[Path] = []
+    kanban_worker = (
+        "HERMES_KANBAN_TASK" in os.environ
+        or "HERMES_KANBAN_SAFE_ROOT_ACTIVE" in os.environ
+    )
+    inherited_safe_root = os.environ.get("HERMES_WRITE_SAFE_ROOT")
+    had_safe_root = "HERMES_WRITE_SAFE_ROOT" in os.environ
     user_env = home_path / ".env"
     project_env_path = Path(project_env) if project_env else None
 
@@ -405,6 +408,13 @@ def load_hermes_dotenv(
     # cron standalone runs) call load_hermes_dotenv() repeatedly and used to flip the effective backend back
     # to the stale .env value mid-session (#29186, #67323).
     _reapply_terminal_config_bridge(home_path)
+
+    # Task-scoped roots must outrank profile and managed env files.
+    if kanban_worker:
+        if had_safe_root:
+            os.environ["HERMES_WRITE_SAFE_ROOT"] = inherited_safe_root or ""
+        else:
+            os.environ.pop("HERMES_WRITE_SAFE_ROOT", None)
 
     return loaded
 
